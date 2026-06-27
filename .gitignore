@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.log
+last_checked.txt
+pending_updates/
+dashboard/node_modules/
+dashboard/.next/
+dashboard/local_db.json

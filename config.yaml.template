@@ -1,0 +1,42 @@
+# PortfolioSyncAgent Configuration Template
+
+# GitHub Configuration
+github:
+  username: "your-github-username"
+  poll_interval: 3600 # interval in seconds for daemon polling
+
+# Portfolio Repository Configuration
+portfolio:
+  local_path: "/path/to/your/local/portfolio"
+  repo_url: "https://github.com/your-username/your-portfolio.git"
+  # Target branch to checkout and commit/push to
+  branch: "det"
+  # Target structure type: 'json' or 'markdown'
+  structure_type: "json"
+  # Path to the target project file relative to portfolio.local_path
+  # e.g., "projects.json" or "README.md"
+  file_path: "projects.json"
+
+# LLM Configuration
+llm:
+  # Provider: 'openai', 'claude_cli', or 'mock'
+  provider: "mock"
+  # Command/alias to invoke the Claude CLI locally (if provider is 'claude_cli')
+  claude_cli_command: "claude"
+  # Model to use for OpenAI
+  openai_model: "gpt-4o"
+
+# Human Approval & Email Notification Configuration
+approval:
+  # Require a human confirmation check before pushing to remote GitHub
+  human_check: true
+  
+  email:
+    # Set to true to receive notification email with approval web links
+    enabled: false
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    sender: "your-email@gmail.com"
+    recipient: "your-email@gmail.com"
+    # Base URL of this agent server to construct approval links (e.g. http://your-ip:8000)
+    base_url: "http://localhost:8000"

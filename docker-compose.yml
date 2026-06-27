@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: portfolio-sync-dashboard
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist local database JSON on the host machine
+      - ./dashboard/local_db.json:/app/local_db.json
+    restart: always
+
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: portfolio-sync-agent
+    volumes:
+      # Share mock portfolio files and configurations
+      - ./mock_portfolio:/app/mock_portfolio
+      - ./last_checked.txt:/app/last_checked.txt
+      - ./config.yaml:/app/config.yaml
+      - ./.env:/app/.env
+    environment:
+      # Point the agent to the dashboard service inside the docker network
+      - VERCEL_DASHBOARD_URL=http://dashboard:3000
+    depends_on:
+      - dashboard
+    restart: always

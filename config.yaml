@@ -7,7 +7,7 @@ github:
 
 # Portfolio Repository Configuration
 portfolio:
-  local_path: "/Users/saransh/vs code/Developer Portfolio AutoSync Agent/mock_portfolio"
+  local_path: "./mock_portfolio"
   repo_url: "https://github.com/saransh21122112/portfolio.git"
   # Target branch to checkout and commit/push to
   branch: "det"

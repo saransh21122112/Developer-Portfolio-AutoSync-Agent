@@ -26,42 +26,95 @@ An automated, modular agent that polls or receives webhooks for new GitHub repos
 
 ## 📐 Architecture
 
-> 🌐 **Interactive Diagram:** Open the interactive visual dashboard directly in your browser:  
-> 👉 **[architecture.html](architecture.html)** (Double-click to inspect component APIs, configs, and file structures)
+Below is the live system flow diagram rendered directly in the Markdown viewer:
 
-```
-                 +-------------------+
-                 |    GitHub API     |
-                 +---------+---------+
-                           |
-                           v
-+--------------------------+--------------------------+
-|                  AutoSync Python Agent              |
-|                                                     |
-|  1. Detects new repos (Poll / Webhooks)             |
-|  2. LLM extracts metadata & generates summaries     |
-|  3. Posts pending changes & logs to Dashboard API   |
-+--------------------------+--------------------------+
-                           |
-                           | HTTP GET/POST (REST)
-                           v
-+--------------------------+--------------------------+
-|                     Next.js Dashboard               |
-|                                                     |
-|  - Telemetry logs & stats                           |
-|  - UI to review and click 'Approve & Push'          |
-|  - Database: Turso libSQL (Cloud)                   |
-+-----------------------------------------------------+
-                           |
-                           | Merges, commits & pushes
-                           v
-+--------------------------+--------------------------+
-|                  Developer Portfolio                |
-|                    (Mock Portfolio)                 |
-+-----------------------------------------------------+
+```mermaid
+graph TD
+    classDef github fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff;
+    classDef agent fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff;
+    classDef dashboard fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff;
+    classDef db fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff;
+    classDef portfolio fill:#059669,stroke:#047857,stroke-width:2px,color:#fff;
+
+    GH[GitHub API]:::github
+    AG[AutoSync Python Agent]:::agent
+    DB[(Turso Cloud DB)]:::db
+    DS[Next.js Telemetry Dashboard]:::dashboard
+    PF[Mock Portfolio Repo]:::portfolio
+
+    GH -->|1. Poll / Webhook Events| AG
+    AG -->|2. Send Logs & Pending Approvals| DS
+    AG -->|3. Read / Write Sync State| DB
+    DS -->|4. Read / Write Logs & Approvals| DB
+    DS -->|5. Run Sync Trigger| DB
+    AG -->|6. Commit & Push Updates| PF
 ```
 
-> 💡 **Tip:** Open the [Interactive Architecture Diagram](file:///Users/saransh/vs%20code/Developer%20Portfolio%20AutoSync%20Agent/architecture.html) directly in your browser to inspect system components, databases, and key source files.
+### 🔍 Component Details
+
+<details>
+  <summary>🌐 <b>GitHub API</b> (Click to expand)</summary>
+  <br>
+  <ul>
+    <li><b>System Role:</b> Data source for discoverable project repositories.</li>
+    <li><b>Trigger Frequency:</b> Polling cycles or incoming webhooks.</li>
+    <li><b>Configuration:</b> <code>GITHUB_TOKEN</code> with <code>repo</code> scopes.</li>
+    <li><b>Key Files:</b> <a href="src/github_client.py">src/github_client.py</a></li>
+    <li><b>Technologies:</b> REST API, JSON, GraphQL, Personal Access Tokens</li>
+  </ul>
+</details>
+
+<details>
+  <summary>🐍 <b>AutoSync Python Agent</b> (Click to expand)</summary>
+  <br>
+  <ul>
+    <li><b>System Role:</b> Local polling orchestrator, OpenAI parser, and Git automation engine.</li>
+    <li><b>Trigger Frequency:</b> Daemon mode checking sync state flags every 10 seconds or on a set cron interval.</li>
+    <li><b>Configuration:</b> <code>config.yaml</code> and <code>.env</code></li>
+    <li><b>Key Files:</b> <a href="main.py">main.py</a>, <a href="src/portfolio_manager.py">src/portfolio_manager.py</a>, <a href="src/llm_router.py">src/llm_router.py</a></li>
+    <li><b>Technologies:</b> Python 3.9, FastAPI, Uvicorn, GitPython, OpenAI SDK</li>
+  </ul>
+</details>
+
+<details>
+  <summary>💻 <b>Vercel Telemetry Dashboard</b> (Click to expand)</summary>
+  <br>
+  <ul>
+    <li><b>System Role:</b> Dashboard UI for execution telemetry logs, stats, and green/red unified approval diffs.</li>
+    <li><b>Trigger Frequency:</b> Allows manual "Run Sync Now" action that posts pending trigger states directly to Turso.</li>
+    <li><b>Configuration:</b> Next.js Serverless APIs</li>
+    <li><b>Key Files:</b> <code>dashboard/src/app/api/approvals</code>, <code>dashboard/src/app/api/logs</code>, <code>dashboard/src/app/api/sync-request</code></li>
+    <li><b>Technologies:</b> Next.js 15, React 19, CSS Grid, Serverless API Routes</li>
+  </ul>
+</details>
+
+<details>
+  <summary>🗄️ <b>Turso DB (libSQL)</b> (Click to expand)</summary>
+  <br>
+  <ul>
+    <li><b>System Role:</b> Cloud database containing shared sync state, audit logs, and approval queues.</li>
+    <li><b>Trigger Frequency:</b> Automatically triggers schema validation/creation on dashboard initialization.</li>
+    <li><b>Configuration:</b> <code>TURSO_DATABASE_URL</code> and <code>TURSO_AUTH_TOKEN</code></li>
+    <li><b>Key Files:</b> <a href="dashboard/src/app/api/db.js">dashboard/src/app/api/db.js</a></li>
+    <li><b>Technologies:</b> libSQL client, SQLite3, Cloud Databases, Auto-Migrations</li>
+  </ul>
+</details>
+
+<details>
+  <summary>📂 <b>Mock Developer Portfolio</b> (Click to expand)</summary>
+  <br>
+  <ul>
+    <li><b>System Role:</b> Target git repository destination.</li>
+    <li><b>Trigger Frequency:</b> Synchronized when local agent receives approval status from database.</li>
+    <li><b>Configuration:</b> <code>config.yaml</code> (under <code>portfolio</code> section)</li>
+    <li><b>Key Files:</b> <code>mock_portfolio/projects.json</code></li>
+    <li><b>Technologies:</b> Git Branch (det/prod), JSON, Markdown, Git Commits</li>
+  </ul>
+</details>
+
+<br>
+
+> 💡 **Tip:** You can also open the **[Interactive Architecture Diagram](architecture.html)** locally in your browser to inspect this setup in an animated graphical format.
 
 ---
 

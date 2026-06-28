@@ -225,6 +225,15 @@ def handle_new_repository(repo_metadata: dict, portfolio_manager: PortfolioManag
                 if decision == "approved":
                     logger.info(f"Vercel Dashboard approved change for '{repo_name}'. Proceeding with sync.")
                     portfolio_manager.write_target_file(updated_content)
+                    if portfolio_manager.config.portfolio_structure_type == "typescript":
+                        try:
+                            portfolio_manager.update_projects_section_file(
+                                repo_metadata.get("id", repo_name.lower().replace(" ", "-")),
+                                repo_name,
+                                repo_metadata.get("description", "")
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to update ProjectsSection.tsx: {e}")
                     success = portfolio_manager.commit_and_push(repo, repo_name)
                     if success:
                         dispatch_success_notifications(repo_metadata, dispatcher)
@@ -280,6 +289,15 @@ def handle_new_repository(repo_metadata: dict, portfolio_manager: PortfolioManag
                 if is_interactive:
                     if ask_cli_approval(diff, repo_name):
                         portfolio_manager.write_target_file(updated_content)
+                        if portfolio_manager.config.portfolio_structure_type == "typescript":
+                            try:
+                                portfolio_manager.update_projects_section_file(
+                                    repo_metadata.get("id", repo_name.lower().replace(" ", "-")),
+                                    repo_name,
+                                    repo_metadata.get("description", "")
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to update ProjectsSection.tsx: {e}")
                         success = portfolio_manager.commit_and_push(repo, repo_name)
                         if success:
                             dispatch_success_notifications(repo_metadata, dispatcher)
@@ -339,8 +357,17 @@ def handle_new_repository(repo_metadata: dict, portfolio_manager: PortfolioManag
                         except Exception as e:
                             logger.warning(f"Could not open browser diff review: {e}")
         else:
-            # Automatic sync (no human check)
+             # Automatic sync (no human check)
             portfolio_manager.write_target_file(updated_content)
+            if portfolio_manager.config.portfolio_structure_type == "typescript":
+                try:
+                    portfolio_manager.update_projects_section_file(
+                        repo_metadata.get("id", repo_name.lower().replace(" ", "-")),
+                        repo_name,
+                        repo_metadata.get("description", "")
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to update ProjectsSection.tsx: {e}")
             success = portfolio_manager.commit_and_push(repo, repo_name)
             if success:
                 dispatch_success_notifications(repo_metadata, dispatcher)
@@ -613,6 +640,16 @@ def run_webhook_server(github_client: GitHubClient, portfolio_manager: Portfolio
             content = pending["content"]
             
             pm.write_target_file(content)
+            if pm.config.portfolio_structure_type == "typescript":
+                try:
+                    pm.update_projects_section_file(
+                        metadata.get("id", project.lower().replace(" ", "-")),
+                        project,
+                        metadata.get("description", "")
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to update ProjectsSection.tsx: {e}")
+            
             success = pm.commit_and_push(repo, project)
             
             if success:

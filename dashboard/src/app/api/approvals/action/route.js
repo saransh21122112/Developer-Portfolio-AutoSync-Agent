@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
-import { isKvConfigured, readLocalDb, writeLocalDb } from '../../db';
+import { getApproval, updateApprovalStatus, addLog } from '../../db';
 
 export async function POST(request) {
   try {
@@ -12,46 +11,25 @@ export async function POST(request) {
     }
 
     const targetStatus = action === 'approve' ? 'approved' : 'rejected';
-    const logMessage = `User ${action === 'approve' ? 'approved' : 'rejected'} the portfolio update for project '${project}'.`;
+    
+    // Check if project exists
+    const approvalItem = await getApproval(project);
+    if (!approvalItem) {
+      return NextResponse.json({ error: `No pending update found for project ${project}` }, { status: 404 });
+    }
 
+    // Update status
+    await updateApprovalStatus(project, targetStatus);
+
+    // Add log entry
+    const logMessage = `User ${action === 'approve' ? 'approved' : 'rejected'} the portfolio update for project '${project}'.`;
     const logEntry = {
       timestamp: new Date().toISOString(),
       level: 'INFO',
       name: 'DashboardUI',
       message: logMessage
     };
-
-    if (isKvConfigured) {
-      try {
-        let approvals = await kv.get('agent_approvals') || {};
-        if (!approvals[project]) {
-          return NextResponse.json({ error: `No pending update found for project ${project}` }, { status: 404 });
-        }
-        
-        // Update status
-        approvals[project].status = targetStatus;
-        await kv.set('agent_approvals', approvals);
-
-        // Add log entry
-        let logs = await kv.get('agent_logs') || [];
-        logs.unshift(logEntry);
-        await kv.set('agent_logs', logs.slice(0, 300));
-
-        return NextResponse.json({ success: true, status: targetStatus });
-      } catch (e) {
-        console.error('Vercel KV Approvals Action Error:', e);
-      }
-    }
-
-    const db = readLocalDb();
-    if (!db.approvals[project]) {
-      return NextResponse.json({ error: `No pending update found for project ${project}` }, { status: 404 });
-    }
-
-    db.approvals[project].status = targetStatus;
-    db.logs.unshift(logEntry);
-    db.logs = db.logs.slice(0, 300);
-    writeLocalDb(db);
+    await addLog(logEntry);
 
     return NextResponse.json({ success: true, status: targetStatus });
   } catch (e) {

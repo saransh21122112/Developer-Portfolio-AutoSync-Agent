@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
-import { isKvConfigured, readLocalDb, writeLocalDb } from '../db';
+import { getApprovals, saveApproval } from '../db';
 
 export async function GET() {
-  if (isKvConfigured) {
-    try {
-      const approvals = await kv.get('agent_approvals') || {};
-      return NextResponse.json(approvals);
-    } catch (e) {
-      console.error('Vercel KV GET Approvals Error:', e);
-    }
+  try {
+    const approvals = await getApprovals();
+    return NextResponse.json(approvals);
+  } catch (e) {
+    console.error('API Approvals GET error:', e);
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
-
-  const db = readLocalDb();
-  return NextResponse.json(db.approvals);
 }
 
 export async function POST(request) {
@@ -34,21 +29,7 @@ export async function POST(request) {
       timestamp: new Date().toISOString()
     };
 
-    if (isKvConfigured) {
-      try {
-        let approvals = await kv.get('agent_approvals') || {};
-        approvals[project] = pendingItem;
-        await kv.set('agent_approvals', approvals);
-        return NextResponse.json({ success: true, item: pendingItem });
-      } catch (e) {
-        console.error('Vercel KV POST Approvals Error:', e);
-      }
-    }
-
-    const db = readLocalDb();
-    db.approvals[project] = pendingItem;
-    writeLocalDb(db);
-
+    await saveApproval(project, pendingItem);
     return NextResponse.json({ success: true, item: pendingItem });
   } catch (e) {
     console.error('API Approvals POST error:', e);

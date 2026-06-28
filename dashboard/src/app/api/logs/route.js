@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
-import { isKvConfigured, readLocalDb, writeLocalDb } from '../db';
+import { getLogs, addLog } from '../db';
 
 export async function GET() {
-  if (isKvConfigured) {
-    try {
-      const logs = await kv.get('agent_logs') || [];
-      return NextResponse.json(logs);
-    } catch (e) {
-      console.error('Vercel KV Error:', e);
-    }
+  try {
+    const logs = await getLogs();
+    return NextResponse.json(logs);
+  } catch (e) {
+    console.error('API Logs GET error:', e);
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
-
-  // Fallback to local DB
-  const db = readLocalDb();
-  return NextResponse.json(db.logs);
 }
 
 export async function POST(request) {
@@ -33,24 +27,7 @@ export async function POST(request) {
       message
     };
 
-    if (isKvConfigured) {
-      try {
-        let logs = await kv.get('agent_logs') || [];
-        logs.unshift(logEntry); // Add to beginning
-        logs = logs.slice(0, 300); // Cap at 300 entries
-        await kv.set('agent_logs', logs);
-        return NextResponse.json({ success: true, entry: logEntry });
-      } catch (e) {
-        console.error('Vercel KV Write Error:', e);
-      }
-    }
-
-    // Fallback write to local DB
-    const db = readLocalDb();
-    db.logs.unshift(logEntry);
-    db.logs = db.logs.slice(0, 300);
-    writeLocalDb(db);
-
+    await addLog(logEntry);
     return NextResponse.json({ success: true, entry: logEntry });
   } catch (e) {
     console.error('API Log POST error:', e);

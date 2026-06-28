@@ -58,6 +58,8 @@ An automated, modular agent that polls or receives webhooks for new GitHub repos
 +-----------------------------------------------------+
 ```
 
+> 💡 **Tip:** Open the [Interactive Architecture Diagram](file:///Users/saransh/vs%20code/Developer%20Portfolio%20AutoSync%20Agent/architecture.html) directly in your browser to inspect system components, databases, and key source files.
+
 ---
 
 ## 🚀 Getting Started

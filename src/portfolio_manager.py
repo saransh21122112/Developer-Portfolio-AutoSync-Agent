@@ -308,6 +308,110 @@ class PortfolioManager:
             f.write(content)
         logger.info(f"Successfully updated target file at {self.target_file_path}")
 
+    def generate_project_visuals(self, project_id: str, project_name: str, project_description: str) -> dict:
+        """Uses LLM to generate custom React SVG component and mapping entries for ProjectsSection.tsx."""
+        system_prompt = (
+            "You are an expert React developer and SVG designer.\n"
+            "Your task is to design a custom, clean SVG illustration representing the project: '{name}'.\n"
+            "Description of the project: '{description}'\n\n"
+            "Examine the style of existing SVG components in the portfolio:\n"
+            "- They use viewBox='0 0 80 80', width='72', height='72', fill='none'.\n"
+            "- They feature neat outlines, circuit lines, trends, or badge shapes using solid white lines and semi-transparent white fills (e.g. rgba(255,255,255,0.15) or rgba(255,255,255,0.4)).\n\n"
+            "Generate:\n"
+            "1. A clean React SVG component function named '{ClassName}SVG()'. Use simple, valid React SVG tags.\n"
+            "2. The key-value pair to add to the PROJECT_SVG dictionary.\n"
+            "3. The key-value pair to add to the PROJECT_VISUALS dictionary with a premium linear-gradient background matching the project theme.\n\n"
+            "You MUST format your output strictly as follows, with no additional explanation, commentary, or markdown blocks:\n"
+            "===SVG_COMPONENT===\n"
+            "function {ClassName}SVG() {{\n"
+            "  return (\n"
+            "    <svg viewBox=\"0 0 80 80\" width=\"72\" height=\"72\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n"
+            "      ...\n"
+            "    </svg>\n"
+            "  );\n"
+            "}}\n"
+            "===PROJECT_SVG_ENTRY===\n"
+            "  \"{project_id}\": <{ClassName}SVG />,\n"
+            "===PROJECT_VISUALS_ENTRY===\n"
+            "  \"{project_id}\": {{ gradient: \"linear-gradient(135deg, #color1 0%, #color2 100%)\" }},"
+        ).format(
+            name=project_name,
+            description=project_description,
+            ClassName="".join(x.capitalize() for x in project_id.replace("-", "_").split("_")),
+            project_id=project_id
+        )
+        
+        response = self.llm_connector.execute_prompt(system_prompt, "Please generate the component and entries.")
+        
+        # Parse the response
+        result = {}
+        current_key = None
+        lines = []
+        
+        for line in response.splitlines():
+            if line.strip().startswith("===SVG_COMPONENT==="):
+                if current_key: result[current_key] = "\n".join(lines).strip()
+                current_key = "svg_component"
+                lines = []
+            elif line.strip().startswith("===PROJECT_SVG_ENTRY==="):
+                if current_key: result[current_key] = "\n".join(lines).strip()
+                current_key = "project_svg_entry"
+                lines = []
+            elif line.strip().startswith("===PROJECT_VISUALS_ENTRY==="):
+                if current_key: result[current_key] = "\n".join(lines).strip()
+                current_key = "project_visuals_entry"
+                lines = []
+            else:
+                lines.append(line)
+                
+        if current_key:
+            result[current_key] = "\n".join(lines).strip()
+            
+        return result
+
+    def update_projects_section_file(self, project_id: str, project_name: str, project_description: str):
+        file_path = self.local_path / "app/components/ProjectsSection.tsx"
+        if not file_path.exists():
+            logger.warning(f"ProjectsSection.tsx not found at {file_path}. Skipping visual update.")
+            return
+            
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        # Check if already added to avoid duplicates
+        if f'"{project_id}":' in content or f"'{project_id}':" in content:
+            logger.info(f"Visuals for project '{project_id}' already present in ProjectsSection.tsx. Skipping.")
+            return
+            
+        visuals = self.generate_project_visuals(project_id, project_name, project_description)
+        svg_comp = visuals.get("svg_component")
+        svg_entry = visuals.get("project_svg_entry")
+        visuals_entry = visuals.get("project_visuals_entry")
+        
+        if not svg_comp or not svg_entry or not visuals_entry:
+            logger.error("Failed to generate complete visual assets for the project.")
+            return
+            
+        # 1. Inject SVG component before PROJECT_SVG definition
+        target_marker = "const PROJECT_SVG:"
+        if target_marker in content:
+            content = content.replace(target_marker, f"{svg_comp}\n\n{target_marker}")
+            
+        # 2. Inject entry in PROJECT_SVG mapping
+        target_marker_2 = "const PROJECT_SVG: Record<string, React.ReactNode> = {"
+        if target_marker_2 in content:
+            content = content.replace(target_marker_2, f"{target_marker_2}\n  {svg_entry}")
+            
+        # 3. Inject entry in PROJECT_VISUALS mapping
+        target_marker_3 = "const PROJECT_VISUALS: Record<string, { gradient: string }> = {"
+        if target_marker_3 in content:
+            content = content.replace(target_marker_3, f"{target_marker_3}\n  {visuals_entry}")
+            
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+            
+        logger.info(f"Successfully updated ProjectsSection.tsx with visual illustration for {project_name}.")
+
     def commit_and_push(self, repo: git.Repo, project_name: str) -> bool:
         """Commits and pushes changes to the remote repository."""
         branch_name = self.config.portfolio_branch
@@ -318,6 +422,14 @@ class PortfolioManager:
 
             relative_target_path = self.config.portfolio_file_path
             repo.git.add(relative_target_path)
+            
+            # Also stage ProjectsSection.tsx if it exists and was modified
+            components_path = "app/components/ProjectsSection.tsx"
+            if (self.local_path / components_path).exists():
+                try:
+                    repo.git.add(components_path)
+                except Exception as e:
+                    logger.warning(f"Could not stage components file: {e}")
             
             commit_message = f"Auto-update portfolio: Added {project_name}"
             repo.index.commit(commit_message)
@@ -376,6 +488,17 @@ class PortfolioManager:
 
         # 6. Overwrite the file
         self.write_target_file(updated_content)
+
+        # 6b. Update ProjectsSection.tsx with custom SVG illustration
+        if self.config.portfolio_structure_type == "typescript":
+            try:
+                self.update_projects_section_file(
+                    project_metadata.get("id", project_name.lower().replace(" ", "-")),
+                    project_name,
+                    project_metadata.get("description", "")
+                )
+            except Exception as e:
+                logger.error(f"Failed to update ProjectsSection.tsx: {e}")
 
         # 7. Commit and Push
         success = self.commit_and_push(repo, project_name)

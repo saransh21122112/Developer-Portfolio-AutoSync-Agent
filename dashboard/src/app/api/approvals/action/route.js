@@ -1,29 +1,6 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
-import fs from 'fs';
-import path from 'path';
-
-const DB_FILE = path.join(process.cwd(), 'local_db.json');
-const isKvConfigured = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-
-function readLocalDb() {
-  if (!fs.existsSync(DB_FILE)) {
-    return { logs: [], approvals: {} };
-  }
-  try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch (e) {
-    return { logs: [], approvals: {} };
-  }
-}
-
-function writeLocalDb(data) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error('Failed to write local DB:', e);
-  }
-}
+import { isKvConfigured, readLocalDb, writeLocalDb } from '../../db';
 
 export async function POST(request) {
   try {

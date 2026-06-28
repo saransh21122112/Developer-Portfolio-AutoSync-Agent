@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Portfolio AutoSync Agent Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.7);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(59, 130, 246, 0.4);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #3b82f6;
+      --primary-glow: rgba(59, 130, 246, 0.15);
+      --secondary: #10b981;
+      --secondary-glow: rgba(16, 185, 129, 0.15);
+      --accent: #8b5cf6;
+      --accent-glow: rgba(139, 92, 246, 0.15);
+      --yellow: #f59e0b;
+      --yellow-glow: rgba(245, 158, 11, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 20px 20px;
+    }
+
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 30px;
+    }
+
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Diagram Canvas */
+    .canvas-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      backdrop-filter: blur(16px);
+      padding: 40px;
+      position: relative;
+      min-height: 600px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    }
+
+    .grid-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-size: 40px 40px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+      border-radius: 24px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .diagram {
+      position: relative;
+      width: 100%;
+      height: 500px;
+      z-index: 1;
+    }
+
+    /* Interactive Component Nodes */
+    .node {
+      position: absolute;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .node:hover, .node.active {
+      transform: translateY(-4px);
+      border-color: var(--border-hover);
+      box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
+    }
+
+    .node-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .node-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .node-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* Node color schemes */
+    .node-github {
+      top: 10%;
+      left: 37%;
+      --border-hover: #f59e0b;
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.05);
+    }
+    .node-github .node-dot { background-color: var(--yellow); }
+    .node-github:hover, .node-github.active { box-shadow: 0 10px 25px rgba(245, 158, 11, 0.2); }
+
+    .node-agent {
+      top: 45%;
+      left: 10%;
+      width: 260px;
+      --border-hover: #3b82f6;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.05);
+    }
+    .node-agent .node-dot { background-color: var(--primary); }
+
+    .node-dashboard {
+      top: 45%;
+      left: 60%;
+      width: 260px;
+      --border-hover: #8b5cf6;
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.05);
+    }
+    .node-dashboard .node-dot { background-color: var(--accent); }
+    .node-dashboard:hover, .node-dashboard.active { box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2); }
+
+    .node-turso {
+      top: 80%;
+      left: 37%;
+      --border-hover: #10b981;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.05);
+    }
+    .node-turso .node-dot { background-color: var(--secondary); }
+    .node-turso:hover, .node-turso.active { box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2); }
+
+    .node-portfolio {
+      top: 48%;
+      left: 39%;
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.2);
+    }
+    .node-portfolio .node-dot { background-color: var(--secondary); }
+
+    /* SVG Connecting Flows */
+    .connections-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .flow-line {
+      fill: none;
+      stroke-width: 2px;
+      stroke-linecap: round;
+      stroke-dasharray: 6, 6;
+      animation: dash 30s linear infinite;
+    }
+
+    .flow-github-agent {
+      stroke: var(--yellow);
+    }
+
+    .flow-agent-db {
+      stroke: var(--primary);
+    }
+
+    .flow-dashboard-db {
+      stroke: var(--accent);
+    }
+
+    .flow-agent-portfolio {
+      stroke: var(--secondary);
+    }
+
+    .flow-agent-dashboard {
+      stroke: var(--primary);
+    }
+
+    @keyframes dash {
+      to {
+        stroke-dashoffset: -1000;
+      }
+    }
+
+    /* Details Side Panel */
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      backdrop-filter: blur(16px);
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      height: fit-content;
+    }
+
+    .panel-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .field-val {
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .code-block {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #60a5fa;
+      overflow-x: auto;
+    }
+
+    .badge-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag-badge {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>System Architecture Map</h1>
+    <div class="subtitle">Interactive visualization of the AutoSync Agent ecosystem. Click any component node to explore its configurations, data models, and roles.</div>
+  </header>
+
+  <main class="container">
+    <!-- Visual Canvas -->
+    <section class="canvas-container">
+      <div class="grid-bg"></div>
+      <div class="diagram">
+        <svg class="connections-layer" viewBox="0 0 800 500" width="100%" height="100%">
+          <!-- GitHub to Agent -->
+          <path class="flow-line flow-github-agent" d="M 370 120 C 250 120, 200 180, 200 230" />
+          <!-- Agent to Turso -->
+          <path class="flow-line flow-agent-db" d="M 200 290 C 200 370, 280 430, 370 430" />
+          <!-- Dashboard to Turso -->
+          <path class="flow-line flow-dashboard-db" d="M 600 290 C 600 370, 520 430, 430 430" />
+          <!-- Agent to Dashboard -->
+          <path class="flow-line flow-agent-dashboard" d="M 360 255 L 600 255" />
+          <!-- Agent to Portfolio -->
+          <path class="flow-line flow-agent-portfolio" d="M 360 265 L 390 265" />
+        </svg>
+
+        <!-- GitHub API Node -->
+        <div class="node node-github active" onclick="showDetails('github')">
+          <div class="node-header">
+            <span class="node-dot"></span>
+            GitHub API
+          </div>
+          <span class="node-desc">Source of project events</span>
+        </div>
+
+        <!-- Local Agent Node -->
+        <div class="node node-agent" onclick="showDetails('agent')">
+          <div class="node-header">
+            <span class="node-dot"></span>
+            AutoSync Python Agent
+          </div>
+          <span class="node-desc">Local poll orchestrator & LLM parser</span>
+        </div>
+
+        <!-- Target Portfolio Node -->
+        <div class="node node-portfolio" onclick="showDetails('portfolio')">
+          <div class="node-header">
+            <span class="node-dot"></span>
+            Mock Portfolio
+          </div>
+          <span class="node-desc">Local/Remote Git Target Repo</span>
+        </div>
+
+        <!-- Next.js Dashboard Node -->
+        <div class="node node-dashboard" onclick="showDetails('dashboard')">
+          <div class="node-header">
+            <span class="node-dot"></span>
+            Vercel Dashboard
+          </div>
+          <span class="node-desc">Next.js UI & telemetry controller</span>
+        </div>
+
+        <!-- Turso Node -->
+        <div class="node node-turso" onclick="showDetails('turso')">
+          <div class="node-header">
+            <span class="node-dot"></span>
+            Turso DB (libSQL)
+          </div>
+          <span class="node-desc">Cloud-shared persistent storage</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Side details panel -->
+    <aside class="panel">
+      <div class="panel-title" id="p-title">
+        <span class="node-dot" style="background-color: var(--yellow);"></span>
+        GitHub API
+      </div>
+      <div class="panel-content" id="p-content">
+        <!-- Dyn contents go here -->
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const data = {
+      github: {
+        title: "GitHub API",
+        color: "var(--yellow)",
+        role: "Serves as the data source for discoverable project repositories.",
+        trigger: "Triggers on user polling routines or incoming webhooks.",
+        configs: "Managed via personal access token (`GITHUB_TOKEN`) with `repo` scopes.",
+        files: "src/github_client.py",
+        badges: ["REST API", "JSON", "Octokit/GraphQL", "Personal Tokens"]
+      },
+      agent: {
+        title: "AutoSync Python Agent",
+        color: "var(--primary)",
+        role: "The core engine running locally. Monitors GitHub updates, routes contents to OpenAI (GPT-4o), compiles project stats, and commits local files.",
+        trigger: "Runs as a perpetual background daemon checking for Sync flags or on a set cron interval.",
+        configs: "config.yaml / .env",
+        files: "main.py\nsrc/portfolio_manager.py\nsrc/llm_router.py",
+        badges: ["Python 3.9", "FastAPI", "Uvicorn", "GitPython", "OpenAI SDK"]
+      },
+      portfolio: {
+        title: "Mock Developer Portfolio",
+        color: "var(--secondary)",
+        role: "The destination git repository holding the portfolio source code.",
+        trigger: "Updates are pushed locally or to remote via git commands on the active branch (e.g. `det` or `prod`).",
+        configs: "config.yaml (`portfolio` section)",
+        files: "mock_portfolio/projects.json",
+        badges: ["Git Branch", "JSON", "Markdown", "Git Commit"]
+      },
+      dashboard: {
+        title: "Vercel Telemetry Dashboard",
+        color: "var(--accent)",
+        role: "Modern web frontend designed to track execution steps, logs, and provide visual green/red unified diff approval prompts.",
+        trigger: "Features a 'Run Sync Now' button that writes sync pending triggers directly to Turso.",
+        configs: "dashboard/src/app/api/db.js",
+        files: "dashboard/src/app/api/approvals\ndashboard/src/app/api/logs\ndashboard/src/app/api/sync-request",
+        badges: ["Next.js 15", "React 19", "CSS Grid", "Serverless APIs"]
+      },
+      turso: {
+        title: "Turso DB (libSQL)",
+        color: "var(--secondary)",
+        role: "Shared cloud SQLite database containing sync state, audit logs, and approval queues.",
+        trigger: "Automatically creates schemas (`logs`, `approvals`, `settings`) on API initialization.",
+        configs: ".env (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`)",
+        files: "dashboard/src/app/api/db.js",
+        badges: ["libSQL client", "SQLite3", "Cloud Database", "Auto Migrations"]
+      }
+    };
+
+    function showDetails(key) {
+      // Toggle active states on nodes
+      document.querySelectorAll('.node').forEach(node => node.classList.remove('active'));
+      const activeNode = document.querySelector(`.node-${key}`);
+      if (activeNode) activeNode.classList.add('active');
+
+      const info = data[key];
+      
+      // Update Title
+      const titleEl = document.getElementById('p-title');
+      titleEl.innerHTML = `<span class="node-dot" style="background-color: ${info.color};"></span> ${info.title}`;
+
+      // Build badges HTML
+      const badgesHtml = info.badges.map(b => `<span class="tag-badge">${b}</span>`).join('');
+
+      // Update Panel Content
+      const contentEl = document.getElementById('p-content');
+      contentEl.innerHTML = `
+        <div class="field">
+          <span class="field-label">System Role</span>
+          <span class="field-val">${info.role}</span>
+        </div>
+        <div class="field">
+          <span class="field-label">Trigger Frequency</span>
+          <span class="field-val">${info.trigger}</span>
+        </div>
+        <div class="field">
+          <span class="field-label">Configuration</span>
+          <span class="field-val">${info.configs}</span>
+        </div>
+        <div class="field">
+          <span class="field-label">Key Files</span>
+          <div class="code-block">${info.files.replace(/\n/g, '<br>')}</div>
+        </div>
+        <div class="field">
+          <span class="field-label">Technologies</span>
+          <div class="badge-list">${badgesHtml}</div>
+        </div>
+      `;
+    }
+
+    // Initialize with github
+    showDetails('github');
+  </script>
+</body>
+</html>

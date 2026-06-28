@@ -82,8 +82,8 @@ class Config:
             errors.append("Portfolio local path is required (set PORTFOLIO_LOCAL_PATH or portfolio.local_path in config.yaml)")
         if self.llm_provider == "openai" and not self.openai_api_key:
             errors.append("OpenAI API key is required when using openai provider (set OPENAI_API_KEY)")
-        if self.portfolio_structure_type not in ("json", "markdown"):
-            errors.append(f"Invalid portfolio structure type: '{self.portfolio_structure_type}'. Must be 'json' or 'markdown'")
+        if self.portfolio_structure_type not in ("json", "markdown", "typescript"):
+            errors.append(f"Invalid portfolio structure type: '{self.portfolio_structure_type}'. Must be 'json', 'markdown', or 'typescript'")
         if not self.portfolio_file_path:
             errors.append("Portfolio project file path is required")
         if self.email_enabled:

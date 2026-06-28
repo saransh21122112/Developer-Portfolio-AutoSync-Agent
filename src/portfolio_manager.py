@@ -220,6 +220,36 @@ class PortfolioManager:
                 f"New Project Metadata to Add:\n{json.dumps(project_info, indent=2)}\n\n"
                 f"Please output the updated JSON content."
             )
+        elif self.config.portfolio_structure_type == "typescript":
+            system_prompt = (
+                "You are an expert front-end developer.\n"
+                "Your task is to update a TypeScript file defining portfolio data by adding a new project to the projects array.\n"
+                "Examine the structure of the existing file. Locate the projects array (typically export const projectsData: Project[] = [...]).\n"
+                "Construct a new project object matching the existing Project type schema. Example schema:\n"
+                "{\n"
+                "  id: string (slugified lowercase project name, e.g. 'project-name'),\n"
+                "  order: string (e.g. 'Project N' where N is projects count + 1),\n"
+                "  title: string,\n"
+                "  techIcons: TechIcon[] (array of { name, iconKey } matching the project's technologies. Use lowercase for iconKey, e.g., 'python', 'fastapi', 'javascript', 'docker'),\n"
+                "  description: string,\n"
+                "  githubUrl: string,\n"
+                "  liveUrl: string (optional)\n"
+                "}\n"
+                "Insert the new project at the beginning of the projectsData array (first element of the array).\n"
+                "Do NOT modify, delete, or reorder any other parts of the file (such as imports, other arrays, or existing projects).\n"
+                "Keep all other formatting, indentation, syntax, and array items exactly unchanged.\n"
+                "Return the complete updated TypeScript file content. Do NOT wrap the code in any markdown fences (like ```typescript ... ```)."
+            )
+            user_content = (
+                f"Existing TypeScript File:\n---\n{original_content}\n---\n\n"
+                f"New Project Metadata to Add:\n"
+                f"Name: {project_info['name']}\n"
+                f"Description: {project_info['description']}\n"
+                f"URL: {project_info['url']}\n"
+                f"Languages/Technologies: {', '.join(project_info['languages'])}\n"
+                f"Created Date: {project_info['date']}\n\n"
+                f"Please output the updated TypeScript content."
+            )
         else:
             system_prompt = (
                 "You are an expert technical writer and web developer.\n"
@@ -243,10 +273,14 @@ class PortfolioManager:
 
         updated_content = self.llm_connector.execute_prompt(system_prompt, user_content)
         
-        # Clean up any potential markdown fences returned by the LLM (e.g. ```json ... ```)
-        if self.config.portfolio_structure_type == "json":
+        # Clean up any potential markdown fences returned by the LLM
+        if self.config.portfolio_structure_type in ("json", "typescript"):
             updated_content = updated_content.strip()
-            if updated_content.startswith("```json"):
+            if updated_content.startswith("```typescript"):
+                updated_content = updated_content[13:]
+            elif updated_content.startswith("```javascript"):
+                updated_content = updated_content[13:]
+            elif updated_content.startswith("```json"):
                 updated_content = updated_content[7:]
             elif updated_content.startswith("```"):
                 updated_content = updated_content[3:]

@@ -11,10 +11,10 @@ portfolio:
   repo_url: "https://github.com/saransh21122112/portfolio.git"
   # Target branch to checkout and commit/push to
   branch: "det"
-  # Target structure type: 'json' or 'markdown'
-  structure_type: "json"
+  # Target structure type: 'json', 'markdown', or 'typescript'
+  structure_type: "typescript"
   # Path to the target project file relative to portfolio.local_path
-  file_path: "projects.json"
+  file_path: "app/data/portfolio.ts"
 
 # LLM Configuration
 llm:

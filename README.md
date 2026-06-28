@@ -26,6 +26,9 @@ An automated, modular agent that polls or receives webhooks for new GitHub repos
 
 ## 📐 Architecture
 
+> 🌐 **Interactive Diagram:** Open the interactive visual dashboard directly in your browser:  
+> 👉 **[architecture.html](architecture.html)** (Double-click to inspect component APIs, configs, and file structures)
+
 ```
                  +-------------------+
                  |    GitHub API     |

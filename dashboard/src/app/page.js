@@ -8,6 +8,8 @@ export default function Home() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
 
   // Poll data from local APIs
   const fetchData = async () => {
@@ -64,6 +66,36 @@ export default function Home() {
     }
   };
 
+  const handleTriggerSync = async () => {
+    setSyncing(true);
+    setSyncStatus('Triggering...');
+    try {
+      const res = await fetch('/api/sync-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sync_pending: true }),
+      });
+      if (res.ok) {
+        setSyncStatus('Pending Agent...');
+        // Wait a few seconds to let it process
+        setTimeout(async () => {
+          await fetchData();
+          setSyncStatus('');
+          setSyncing(false);
+        }, 5000);
+      } else {
+        const data = await res.json();
+        alert(`Error triggering sync: ${data.error}`);
+        setSyncing(false);
+      }
+    } catch (e) {
+      alert(`Sync trigger failed: ${e.message}`);
+      setSyncing(false);
+    }
+  };
+
   // Calculations for stats
   const pendingApprovalsList = Object.values(approvals).filter(
     (app) => app.status === 'pending'
@@ -101,18 +133,41 @@ export default function Home() {
             Real-time deployment pipelines and validation dashboard
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{
-            display: 'inline-block',
-            width: '10px',
-            height: '10px',
-            borderRadius: '50%',
-            backgroundColor: activeAgentStatus === 'ACTIVE' ? '#10b981' : '#6366f1',
-            boxShadow: activeAgentStatus === 'ACTIVE' ? '0 0 10px #10b981' : '0 0 10px #6366f1'
-          }} />
-          <span style={{ fontSize: '13px', fontWeight: 'bold', color: activeAgentStatus === 'ACTIVE' ? '#10b981' : '#818cf8' }}>
-            {activeAgentStatus}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <button
+            disabled={syncing}
+            onClick={handleTriggerSync}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              background: syncing 
+                ? 'rgba(255, 255, 255, 0.05)' 
+                : 'linear-gradient(to right, #06b6d4, #3b82f6)',
+              color: syncing ? '#64748b' : 'white',
+              fontWeight: 'bold',
+              cursor: syncing ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              boxShadow: syncing ? 'none' : '0 4px 14px rgba(6, 182, 212, 0.3)',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+            }}
+          >
+            {syncing ? (syncStatus || 'Triggering...') : 'Run Sync Now'}
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{
+              display: 'inline-block',
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: activeAgentStatus === 'ACTIVE' ? '#10b981' : '#6366f1',
+              boxShadow: activeAgentStatus === 'ACTIVE' ? '0 0 10px #10b981' : '0 0 10px #6366f1'
+            }} />
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: activeAgentStatus === 'ACTIVE' ? '#10b981' : '#818cf8' }}>
+              {activeAgentStatus}
+            </span>
+          </div>
         </div>
       </header>
 

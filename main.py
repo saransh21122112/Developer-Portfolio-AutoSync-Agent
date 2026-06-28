@@ -6,6 +6,7 @@ import difflib
 import urllib.parse
 import webbrowser
 import requests
+import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from fastapi import FastAPI, Request
@@ -367,6 +368,25 @@ def run_poll(github_client: GitHubClient, portfolio_manager: PortfolioManager, d
     logger.info("One-off poll execution completed.")
 
 
+def check_remote_sync_request() -> bool:
+    """Checks if there is a pending sync request on the Vercel/local dashboard."""
+    if not config.vercel_dashboard_url:
+        return False
+    try:
+        url = f"{config.vercel_dashboard_url}/api/sync-request"
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            if data.get("sync_pending"):
+                logger.info("Sync request detected from dashboard. Resetting flag and starting sync...")
+                # Reset the flag to False so we don't trigger it repeatedly
+                requests.post(url, json={"sync_pending": False}, timeout=5)
+                return True
+    except Exception as e:
+        logger.debug(f"Could not connect to dashboard sync-request endpoint: {e}")
+    return False
+
+
 def run_daemon(github_client: GitHubClient, portfolio_manager: PortfolioManager, dispatcher: EventDispatcher):
     """Runs a polling loop daemon according to the poll_interval configuration."""
     interval = config.poll_interval
@@ -379,8 +399,15 @@ def run_daemon(github_client: GitHubClient, portfolio_manager: PortfolioManager,
             except Exception as e:
                 logger.error(f"Error in daemon polling cycle: {e}", exc_info=True)
                 
-            logger.info(f"Sleeping for {interval} seconds...")
-            time.sleep(interval)
+            logger.info(f"Sleeping for {interval} seconds (checking for dashboard sync requests every 10s)...")
+            
+            elapsed = 0
+            while elapsed < interval:
+                if check_remote_sync_request():
+                    logger.info("Instantly running sync triggered from dashboard.")
+                    break
+                time.sleep(10)
+                elapsed += 10
     except KeyboardInterrupt:
         logger.info("Daemon execution stopped by user (KeyboardInterrupt).")
 
@@ -641,6 +668,14 @@ def run_webhook_server(github_client: GitHubClient, portfolio_manager: Portfolio
             </body>
         </html>
         """
+    # Start the daemon thread to handle periodic polling and remote trigger checking in the background
+    daemon_thread = threading.Thread(
+        target=run_daemon,
+        args=(github_client, portfolio_manager, dispatcher),
+        daemon=True
+    )
+    daemon_thread.start()
+    logger.info("Background daemon thread started successfully inside webhook server.")
         
     uvicorn.run(app, host=host, port=port)
 
